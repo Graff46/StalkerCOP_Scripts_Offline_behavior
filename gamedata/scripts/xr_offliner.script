@@ -1,0 +1,140 @@
+--************************--
+-- xr_offliner.script
+-- Graff46 22.05.2020 21:43
+-- Схема управления поведением НПС в оффлайне
+--************************--
+
+db = {}
+
+local smartStoryID = 'zat_stalker_base_smart'
+
+class "offliner"
+
+function offliner:__init(sobj)
+	self.object = sobj
+	self.proxySmartID = get_story_object_id(smartStoryID)
+	
+	if (self.object.m_smart_terrain_id ~= 65535) then
+		local smart = alife():object(self.object.m_smart_terrain_id)
+		
+		if (smart) and (smart.npc_info[self.object.id] or smart.arriving_npc[self.object.id]) then
+			return printf("NPC_%s_employed_smart_terrain", self.object:name())
+		end
+	end
+	
+	if self.object.offline_behavior then
+		self.object.offline_behavior:shutdown()
+	end
+	self.object.offline_behavior = self
+	
+	self.object.m_smart_terrain_id = self.proxySmartID
+	
+	self.swith = false
+	self.ini = false
+	self.events = {}
+end
+
+function offliner:set_params(level_vertex, game_vertex)
+	if level_vertex and game_vertex then
+		xr_offliner.db[self.object.id] = {level_vertex, game_vertex}
+	elseif self.ini then
+		xr_offliner.db[self.object.id] = {
+			utils.cfg_get_number (self.ini, self.active_section, "lv", self.object, false),
+			utils.cfg_get_number (self.ini, self.active_section, "gv", self.object, false)
+		}
+	else
+		return abort("xr_offliner:set_params")
+	end
+end
+
+function offliner:shutdown()
+	self.object.offline_behavior = nil
+	db[self.object.id] = nil
+	
+	self.object.m_smart_terrain_id = 65535
+end
+
+function offliner:callEvent(eventName)
+	if self.events[eventName] then
+		self.new_active_section = xr_logic.pick_section_from_condlist(db.actor, self.object, self.events[eventName])
+	end
+end
+
+function offliner:update(se_npc)
+	if self.active_section then
+		if self.swith then
+			self.new_active_section = xr_logic.pick_section_from_condlist(db.actor, self.object, self.swith)
+		end
+			
+		if self.new_active_section ~= self.active_section then
+			self.active_section = self.new_active_section
+			if (not self.active_section) or (self.active_section == "nil") then
+				return self:shutdown()
+			end
+			return self:set_params()
+		end
+		
+		if self.object.m_game_vertex_id == xr_offliner.db[self.object.id][2] and
+		self.object.m_level_vertex_id == xr_offliner.db[self.object.id][1] then
+			return self:callEvent("end")
+		end
+	end
+end
+
+function offliner:eventParse()
+	local eventNames = {'end'}
+	
+	local swithName, condlist = "", false
+	for k, v in ipairs(eventNames) do
+		swithName = "on_"..v
+		if self.ini:line_exist(self.active_section, swithName) then
+			condlist = utils.cfg_get_string(self.ini, self.active_section, swithName, self.object, false, "")
+			if condlist then
+				self.events[v] = xr_logic.parse_condlist(self.object, self.active_section, swithName, condlist)
+			end
+		end
+	end
+end
+
+function offliner:parseSwith()
+	local swithStr = utils.cfg_get_string(ini, active_section, "on_over", se_obj, false, "")
+	
+	if swithStr then
+		self.swith = xr_logic.parse_condlist(se_obj, active_section, "on_over", swithStr)
+	else
+		self.swith = false
+	end
+end
+
+function offliner:set_behavior(ini, active_section, swith)  
+	self.ini = ini
+	self.active_section = active_section
+	self.new_active_section = self.active_section
+	
+	self:parseSwith() -- set self.swith
+	self:eventParse() -- set self.events
+	
+	return self:set_params()
+end
+
+function parse(se_obj) 
+	local ini = se_obj:spawn_ini()
+	local filename = utils.cfg_get_string(ini, 'offline', "cfg", se_obj, false, "")
+	if filename then
+		local ini = ini_file(filename)
+	end
+	
+	local active_section_cond = utils.cfg_get_string(ini, 'offline', "active", se_obj, false, "")
+	if not active_section_cond then return end
+	active_section_cond = xr_logic.parse_condlist(se_obj, 'offline', "active", active_section_cond)
+
+	local active_section = xr_logic.pick_section_from_condlist(db.actor, se_obj, active_section_cond)
+	
+	if active_section and active_section ~= "nil" then 
+		return xr_offliner.offliner(se_obj):set_behavior(ini, active_section)
+	end
+end
+
+function onOffline(se_npc)
+	return xr_offliner.parse(se_npc)
+end
