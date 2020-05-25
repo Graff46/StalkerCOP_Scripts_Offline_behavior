@@ -1,0 +1,33 @@
+
+local pos = db.actor:position()
+local lv, gv = db.actor:level_vertex_id(), db.actor:game_vertex_id()
+pos.x = pos.x + 1
+--
+local sim = alife()
+local aa = level.get_target_obj() 
+
+
+
+if _G.ttt then
+	sim:set_switch_online  (_G.ttt.id, not _G.ttt.online)
+	sim:set_switch_offline (_G.ttt.id, true)
+	print(pos.z)
+else
+	_G.ttt = sim:create("mytestnpc", pos, lv, gv)
+	level.map_add_object_spot_ser(_G.ttt.id, "green_location", "Cell12")
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
