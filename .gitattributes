@@ -1,0 +1,2 @@
+gamedata/configs/* linguist-vendored
+*.script linguist-language=Lua
