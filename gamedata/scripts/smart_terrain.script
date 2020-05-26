@@ -311,7 +311,7 @@ function se_smart_terrain:register_npc(obj)
 	printf("[smart_terrain %s] register called obj=%s", self:name(), obj:name())
 	self.population = self.population + 1
 	
-	if obj.offline_behavior then
+	if obj.no_smart or obj.offline_behavior then
 		return
 	end
 
@@ -397,12 +397,9 @@ function se_smart_terrain:clear_dead(obj)
 end
 
 -- выдать объекту задание.
-local offlinerVertices
-
 function se_smart_terrain:task(obj)
-	offlinerVertices = obj.offline_targets
-	if offlinerVertices then
-		return CALifeSmartTerrainTask(offlinerVertices[2], offlinerVertices[1])
+	if obj.offline_targets then
+		return CALifeSmartTerrainTask(obj.offline_targets[2], obj.offline_targets[1])
 	end
 
 	if self.arriving_npc[obj.id] ~= nil then
