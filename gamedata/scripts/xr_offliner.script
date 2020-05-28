@@ -34,10 +34,10 @@ function offliner:__init(sobj)
 end
 
 function offliner:shutdown()
+	self.object.m_smart_terrain_id = 65535
+	
 	self.object.offline_targets = nil
 	self.object.offline_behavior = nil
-	
-	self.object.m_smart_terrain_id = 65535
 end
 
 function offliner:setTargetVertices(level_vertex, game_vertex)
