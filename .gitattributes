@@ -1,2 +1,3 @@
 gamedata/configs/* linguist-vendored
 *.script linguist-language=Lua
+*.ltx linguist-language=ini
